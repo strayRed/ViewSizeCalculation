@@ -1,0 +1,16 @@
+PODS:
+  - ViewSizeCalculation (0.1.0)
+
+DEPENDENCIES:
+  - ViewSizeCalculation (from `../`)
+
+EXTERNAL SOURCES:
+  ViewSizeCalculation:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  ViewSizeCalculation: 92ed9c0fe137e0298527f757fbfd16b5b1212a5f
+
+PODFILE CHECKSUM: ea9eed61b1b8636545a7ea29649ca7d614052278
+
+COCOAPODS: 1.11.3
