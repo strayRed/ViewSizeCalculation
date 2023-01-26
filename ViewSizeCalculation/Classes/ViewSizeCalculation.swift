@@ -1,6 +1,5 @@
 //
 //  ViewSizeCalculation.swift
-//  Pods-ViewSizeCalculation_Example
 //
 //  Created by strayRed on 2023/1/23.
 //
@@ -40,6 +39,12 @@ extension UICollectionViewCell {
     }
 }
 
+extension UITableViewHeaderFooterView {
+    public override var autoLayoutContentView: UIView {
+        return contentView
+    }
+}
+
 extension UIView {
     public enum LayoutSizeCaculatingType {
         case autoLayout(sizeConstraint: LayoutSizeConstraint, style: UIView.LayoutSizeFittingStyle)
@@ -58,8 +63,9 @@ extension UIView {
     }
     
     public func caculateAutoLayoutSize(sizeConstraint: LayoutSizeConstraint, style: UIView.LayoutSizeFittingStyle) -> CGSize {
+        let isListItemView = self.isListItemView
         let translatesAutoresizingMaskIntoConstraints = autoLayoutContentView.translatesAutoresizingMaskIntoConstraints
-        let autoresizingMaskCondition = translatesAutoresizingMaskCondition && translatesAutoresizingMaskIntoConstraints
+        let autoresizingMaskCondition = !isListItemView && translatesAutoresizingMaskIntoConstraints
         defer {
             if autoresizingMaskCondition {
                 autoLayoutContentView.translatesAutoresizingMaskIntoConstraints = true
@@ -68,50 +74,61 @@ extension UIView {
         if autoresizingMaskCondition {
             autoLayoutContentView.translatesAutoresizingMaskIntoConstraints = false
         }
+        var currentHeightConstraint: NSLayoutConstraint?
+        var currentWidthConstraint: NSLayoutConstraint?
+        
+        func deactivateSizeConstraints() {
+            guard !isListItemView else { return }
+            for constraint in autoLayoutContentView.constraints {
+                if constraint.firstItem as! NSObject == autoLayoutContentView && constraint.secondItem == nil {
+                    switch constraint.firstAttribute {
+                    case .height:
+                        currentHeightConstraint = constraint
+                        NSLayoutConstraint.deactivate([constraint])
+                    case .width:
+                        currentWidthConstraint = constraint
+                        NSLayoutConstraint.deactivate([constraint])
+                    default: break
+                    }
+                }
+            }
+        }
+        
+        func reactivateSizeConstraints() {
+            if let currentHeightConstraint = currentHeightConstraint {
+                NSLayoutConstraint.activate([currentHeightConstraint])
+            }
+            if let currentWidthConstraint = currentWidthConstraint {
+                NSLayoutConstraint.activate([currentWidthConstraint])
+            }
+        }
+        
         switch sizeConstraint {
         case .width(let constraintWidth):
             var addtionalWidthConstraint: NSLayoutConstraint?
-            var currentHeightConstraint: NSLayoutConstraint?
             if let constraintWidth = constraintWidth {
+                deactivateSizeConstraints()
                 addtionalWidthConstraint = .init(item: autoLayoutContentView, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1, constant: constraintWidth)
                 NSLayoutConstraint.activate([addtionalWidthConstraint!])
-            }
-            for constraint in constraints {
-                if constraint.firstItem as! NSObject == autoLayoutContentView && constraint.firstAttribute == .height && constraint.secondItem == nil {
-                    currentHeightConstraint = constraint
-                    NSLayoutConstraint.deactivate([constraint])
-                    break
-                }
             }
             let size = autoLayoutContentView.systemLayoutSizeFitting(style.size)
             if let addtionalWidthConstraint = addtionalWidthConstraint {
                 NSLayoutConstraint.deactivate([addtionalWidthConstraint])
             }
-            if let currentHeightConstraint = currentHeightConstraint {
-                NSLayoutConstraint.deactivate([currentHeightConstraint])
-            }
+            reactivateSizeConstraints()
             return size
         case .height(let constraintHeight):
             var addtionalHeightConstraint: NSLayoutConstraint?
-            var currentWidthConstraint: NSLayoutConstraint?
             if let constraintHeight = constraintHeight {
+                deactivateSizeConstraints()
                 addtionalHeightConstraint = .init(item: autoLayoutContentView, attribute: .height, relatedBy: .equal, toItem: nil, attribute: .height, multiplier: 1, constant: constraintHeight)
                 NSLayoutConstraint.activate([addtionalHeightConstraint!])
-            }
-            for constraint in constraints {
-                if constraint.firstItem as! NSObject == autoLayoutContentView && constraint.firstAttribute == .width && constraint.secondItem == nil {
-                    currentWidthConstraint = constraint
-                    NSLayoutConstraint.deactivate([constraint])
-                    break
-                }
             }
             let size = autoLayoutContentView.systemLayoutSizeFitting(style.size)
             if let addtionalHeightConstraint = addtionalHeightConstraint {
                 NSLayoutConstraint.deactivate([addtionalHeightConstraint])
             }
-            if let currentWidthConstraint = currentWidthConstraint {
-                NSLayoutConstraint.deactivate([currentWidthConstraint])
-            }
+            reactivateSizeConstraints()
             return size
         case .none:
             return autoLayoutContentView.systemLayoutSizeFitting(style.size)
@@ -127,10 +144,15 @@ extension UIView {
         return .init(width: maxX, height: maxY)
     }
     
-    private var translatesAutoresizingMaskCondition: Bool {
+    private var isListItemView: Bool {
         let conditions: [(UIView) -> (Bool)] = [
-            { ($0 is UICollectionReusableView) && !($0 is UICollectionViewCell) },
-            { $0 is UITableViewCell } ]
-        return conditions.reduce(true) { $0 && !$1(self) }
+            { $0 is UITableViewCell },
+            { $0 is UITableViewHeaderFooterView },
+            { $0 is UICollectionReusableView }
+        ]
+        for condition in conditions {
+            if condition(self) { return true }
+        }
+        return false
     }
 }
